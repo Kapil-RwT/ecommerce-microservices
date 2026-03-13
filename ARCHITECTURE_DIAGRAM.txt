@@ -1,0 +1,318 @@
+# E-Commerce Microservices Architecture Diagram
+
+## System Architecture Overview
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                              CLIENTS                                        │
+│                    (Web, Mobile, Third-party)                              │
+│                                                                             │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               │ HTTPS
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          API GATEWAY (8080)                                 │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │   Routing   │  │     Auth     │  │ Rate Limiting│  │Circuit Breaker│   │
+│  │             │  │  (JWT Verify)│  │  (Redis)     │  │ (Resilience4j)│   │
+│  └─────────────┘  └──────────────┘  └──────────────┘  └──────────────┘   │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     SERVICE DISCOVERY (8761)                                │
+│                         EUREKA SERVER                                       │
+│              (Service Registration & Health Checks)                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+        ▼                      ▼                      ▼
+┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+│ USER SERVICE │      │   PRODUCT    │      │    ORDER     │
+│    (8081)    │      │   SERVICE    │      │   SERVICE    │
+│              │      │    (8082)    │      │    (8085)    │
+│  ┌────────┐  │      │              │      │              │
+│  │  Auth  │  │      │  ┌────────┐  │      │  ┌────────┐  │
+│  │  JWT   │  │      │  │ Search │  │      │  │  SAGA  │  │
+│  │ BCrypt │  │      │  │  ES    │  │      │  │ Pattern│  │
+│  └────────┘  │      │  └────────┘  │      │  └────────┘  │
+│              │      │              │      │              │
+│  PostgreSQL  │      │  PostgreSQL  │      │  PostgreSQL  │
+│  + Redis     │      │  + Redis     │      │              │
+└──────────────┘      │  + Elastic   │      └──────┬───────┘
+                      │    search    │             │
+                      └──────────────┘             │
+                                                   │
+                      ┌──────────────┐             │
+                      │  INVENTORY   │◄────────────┤
+                      │   SERVICE    │             │
+                      │    (8083)    │             │
+                      │              │             │
+                      │  ┌────────┐  │             │
+                      │  │Locking │  │             │
+                      │  │Reserve │  │             │
+                      │  └────────┘  │             │
+                      │              │             │
+                      │  PostgreSQL  │             │
+                      └──────┬───────┘             │
+                             │                     │
+                      ┌──────────────┐             │
+                      │   PAYMENT    │◄────────────┘
+                      │   SERVICE    │
+                      │    (8084)    │
+                      │              │
+                      │  ┌────────┐  │
+                      │  │Gateway │  │
+                      │  │Simulate│  │
+                      │  └────────┘  │
+                      │              │
+                      │  PostgreSQL  │
+                      └──────┬───────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         KAFKA MESSAGE BROKER                                │
+│                                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐        │
+│  │  payment-events  │  │   order-events   │  │ inventory-events │        │
+│  └──────────────────┘  └──────────────────┘  └──────────────────┘        │
+└──────────────────────────────┬──────────────────────────────────────────────┘
+                               │
+                               ▼
+                      ┌──────────────┐
+                      │NOTIFICATION  │
+                      │  SERVICE     │
+                      │   (8086)     │
+                      │              │
+                      │ ┌──────────┐ │
+                      │ │  Email   │ │
+                      │ │  SMS     │ │
+                      │ │  Push    │ │
+                      │ └──────────┘ │
+                      └──────────────┘
+
+
+## Saga Pattern Flow (Order Service)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          ORDER SAGA ORCHESTRATION                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │ Create Order│
+    │  (PENDING)  │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────────────┐
+    │ Reserve Inventory   │──────┐
+    │ (Pessimistic Lock)  │      │
+    └──────┬──────────────┘      │ FAILURE
+           │ SUCCESS              │ ↓
+           ▼                      │ Compensate
+    ┌─────────────────────┐      │ (Release Stock)
+    │  Process Payment    │──────┤
+    │  (Gateway Call)     │      │
+    └──────┬──────────────┘      │
+           │ SUCCESS              │
+           ▼                      │
+    ┌─────────────────────┐      │
+    │ Confirm Inventory   │──────┤
+    │ (Deduct Stock)      │      │
+    └──────┬──────────────┘      │
+           │ SUCCESS              │
+           ▼                      │
+    ┌─────────────┐               │
+    │Order Status │               │
+    │ CONFIRMED   │               │
+    └─────────────┘               │
+                                  │
+                                  ▼
+                          ┌──────────────┐
+                          │Order Status  │
+                          │  CANCELLED   │
+                          └──────────────┘
+
+
+## Data Flow - Create Order
+
+Client → API Gateway → Order Service
+                          │
+                          ├──→ Product Service (Get Product Details)
+                          │    └──→ PostgreSQL
+                          │
+                          ├──→ Inventory Service (Reserve Stock)
+                          │    └──→ PostgreSQL (with Lock)
+                          │
+                          ├──→ Payment Service (Process Payment)
+                          │    ├──→ PostgreSQL
+                          │    └──→ Kafka (payment-events)
+                          │
+                          ├──→ Inventory Service (Confirm)
+                          │    └──→ PostgreSQL
+                          │
+                          └──→ Kafka (order-events)
+                               └──→ Notification Service
+                                    └──→ Send Email/SMS
+
+
+## Infrastructure Components
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INFRASTRUCTURE LAYER                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  PostgreSQL  │  │    Redis     │  │Elasticsearch │  │    Kafka     │  │
+│  │   (x5 DBs)   │  │   (Cache)    │  │   (Search)   │  │  (Events)    │  │
+│  │              │  │              │  │              │  │              │  │
+│  │ - users      │  │ - Sessions   │  │ - Products   │  │ - payment    │  │
+│  │ - products   │  │ - Rate Limit │  │ - Indexing   │  │ - order      │  │
+│  │ - inventory  │  │ - Cache      │  │ - Full-text  │  │ - inventory  │  │
+│  │ - payments   │  │              │  │              │  │              │  │
+│  │ - orders     │  │              │  │              │  │              │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+## Monitoring & Observability
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      MONITORING STACK                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  All Services                                                               │
+│       │                                                                     │
+│       │ /actuator/prometheus                                                │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌──────────────┐                                                          │
+│  │  Prometheus  │                                                          │
+│  │    (9090)    │                                                          │
+│  │              │                                                          │
+│  │ - Scrapes    │                                                          │
+│  │ - Aggregates │                                                          │
+│  │ - Alerts     │                                                          │
+│  └──────┬───────┘                                                          │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────┐                                                          │
+│  │   Grafana    │                                                          │
+│  │    (3000)    │                                                          │
+│  │              │                                                          │
+│  │ - Dashboards │                                                          │
+│  │ - Alerts     │                                                          │
+│  │ - Analytics  │                                                          │
+│  └──────────────┘                                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+## Security Flow
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SECURITY ARCHITECTURE                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Client Login
+         │
+         ▼
+    User Service
+         │
+         ├──→ Validate Credentials (BCrypt)
+         │
+         ├──→ Generate JWT Token
+         │    (24 hour expiration)
+         │
+         └──→ Return Token to Client
+
+    Client Request with Token
+         │
+         ▼
+    API Gateway
+         │
+         ├──→ Extract JWT from Header
+         │
+         ├──→ Validate Token
+         │    (Signature, Expiration)
+         │
+         ├──→ Extract User Info
+         │
+         └──→ Forward to Service
+              (with X-User-Id header)
+
+
+## Deployment Architecture
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         DOCKER COMPOSE (Development)                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Docker Network: ecommerce-network                                          │
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────────┐   │
+│  │  Containers (20+)                                                   │   │
+│  │  - 8 Microservices                                                  │   │
+│  │  - 5 PostgreSQL databases                                           │   │
+│  │  - 1 Redis                                                          │   │
+│  │  - 1 Elasticsearch                                                  │   │
+│  │  - 1 Kafka + Zookeeper                                              │   │
+│  │  - 1 Prometheus                                                     │   │
+│  │  - 1 Grafana                                                        │   │
+│  └────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Volumes (Persistent Storage)                                               │
+│  - postgres-users-data                                                      │
+│  - postgres-products-data                                                   │
+│  - postgres-inventory-data                                                  │
+│  - postgres-payments-data                                                   │
+│  - postgres-orders-data                                                     │
+│  - redis-data                                                               │
+│  - elasticsearch-data                                                       │
+│  - prometheus-data                                                          │
+│  - grafana-data                                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+## Technology Stack Summary
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Category          │  Technology                                            │
+├────────────────────┼────────────────────────────────────────────────────────┤
+│  Framework         │  Spring Boot 3.2.3, Spring Cloud 2023.0.0            │
+│  Language          │  Java 17                                               │
+│  Build Tool        │  Maven 3.8+                                            │
+│  Service Discovery │  Netflix Eureka                                        │
+│  API Gateway       │  Spring Cloud Gateway                                  │
+│  Circuit Breaker   │  Resilience4j                                          │
+│  Databases         │  PostgreSQL 15 (5 instances)                          │
+│  Cache             │  Redis 7                                               │
+│  Search            │  Elasticsearch 8.11                                    │
+│  Message Broker    │  Apache Kafka 7.5                                      │
+│  Security          │  Spring Security, JWT                                  │
+│  Monitoring        │  Prometheus, Grafana, Spring Boot Actuator           │
+│  Documentation     │  SpringDoc OpenAPI (Swagger)                          │
+│  Containerization  │  Docker, Docker Compose                               │
+│  Testing           │  JUnit 5, Mockito                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+## Key Metrics
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Metric                    │  Value                                         │
+├────────────────────────────┼────────────────────────────────────────────────┤
+│  Microservices             │  8                                             │
+│  Databases                 │  5 PostgreSQL instances                        │
+│  Java Files                │  65+                                           │
+│  API Endpoints             │  50+                                           │
+│  Docker Containers         │  20+                                           │
+│  Lines of Code             │  10,000+                                       │
+│  Technologies Used         │  15+                                           │
+│  Documentation Pages       │  6 comprehensive guides                        │
+└─────────────────────────────────────────────────────────────────────────────┘

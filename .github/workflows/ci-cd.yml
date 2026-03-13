@@ -1,0 +1,117 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: Build common-lib
+      run: |
+        cd common-lib
+        mvn clean install -DskipTests
+    
+    - name: Build and Test Eureka Server
+      run: |
+        cd eureka-server
+        mvn clean package
+    
+    - name: Build and Test API Gateway
+      run: |
+        cd api-gateway
+        mvn clean package
+    
+    - name: Build and Test User Service
+      run: |
+        cd user-service
+        mvn clean package
+    
+    - name: Build and Test Product Service
+      run: |
+        cd product-service
+        mvn clean package
+    
+    - name: Build and Test Inventory Service
+      run: |
+        cd inventory-service
+        mvn clean package
+    
+    - name: Build and Test Payment Service
+      run: |
+        cd payment-service
+        mvn clean package
+    
+    - name: Build and Test Order Service
+      run: |
+        cd order-service
+        mvn clean package
+    
+    - name: Build and Test Notification Service
+      run: |
+        cd notification-service
+        mvn clean package
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: microservices-jars
+        path: |
+          */target/*.jar
+
+  docker-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: microservices-jars
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Docker images
+      run: |
+        services=("eureka-server" "api-gateway" "user-service" "product-service" "inventory-service" "payment-service" "order-service" "notification-service")
+        for service in "${services[@]}"
+        do
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/ecommerce-$service:latest ./$service
+          docker push ${{ secrets.DOCKER_USERNAME }}/ecommerce-$service:latest
+        done
+
+  deploy:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Cloud
+      run: |
+        echo "Deployment step - configure based on your cloud provider"
+        # Add deployment commands here (AWS ECS, Kubernetes, etc.)
