@@ -2,6 +2,7 @@ package com.ecommerce.order.saga;
 
 import com.ecommerce.order.client.InventoryClient;
 import com.ecommerce.order.client.PaymentClient;
+import com.ecommerce.order.client.dto.PaymentRequestDto;
 import com.ecommerce.order.model.Order;
 import com.ecommerce.order.model.OrderItem;
 import com.ecommerce.order.repository.OrderRepository;

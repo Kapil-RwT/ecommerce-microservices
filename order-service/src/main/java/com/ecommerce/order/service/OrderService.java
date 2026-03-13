@@ -3,6 +3,7 @@ package com.ecommerce.order.service;
 import com.ecommerce.common.dto.ApiResponse;
 import com.ecommerce.common.exception.ResourceNotFoundException;
 import com.ecommerce.order.client.ProductClient;
+import com.ecommerce.order.client.dto.ProductDto;
 import com.ecommerce.order.dto.*;
 import com.ecommerce.order.model.Order;
 import com.ecommerce.order.model.OrderItem;
