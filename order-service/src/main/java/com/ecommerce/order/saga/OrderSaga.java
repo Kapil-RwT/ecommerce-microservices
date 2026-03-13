@@ -72,7 +72,7 @@ public class OrderSaga {
 
     private Long processPayment(Order order) {
         try {
-            var paymentRequest = new com.ecommerce.order.client.PaymentRequestDto(
+            var paymentRequest = new PaymentRequestDto(
                     order.getId(),
                     order.getUserId(),
                     order.getTotalAmount(),

@@ -50,7 +50,7 @@ public class OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.getItems()) {
             // Fetch product details
-            ApiResponse<com.ecommerce.order.client.ProductClient.ProductDto> productResponse = 
+            ApiResponse<ProductDto> productResponse = 
                     productClient.getProductById(itemRequest.getProductId());
             
             if (productResponse.getData() == null) {
