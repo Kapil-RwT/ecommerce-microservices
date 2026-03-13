@@ -1,10 +1,10 @@
 {
   "name": "E-Commerce Microservices",
-  "image": "mcr.microsoft.com/devcontainers/java:17",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "moby": false,
+      "version": "latest",
       "dockerDashComposeVersion": "v2"
     },
     "ghcr.io/devcontainers/features/java:1": {
