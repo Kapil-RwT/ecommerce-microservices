@@ -14,7 +14,7 @@ public interface ProductClient {
     ApiResponse<ProductDto> getProductById(@PathVariable Long id);
 }
 
-class ProductDto {
+public class ProductDto {
     private Long id;
     private String name;
     private BigDecimal price;

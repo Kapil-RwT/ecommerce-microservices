@@ -14,7 +14,7 @@ public interface PaymentClient {
     ApiResponse<PaymentDto> processPayment(@RequestBody PaymentRequestDto request);
 }
 
-class PaymentRequestDto {
+public class PaymentRequestDto {
     private Long orderId;
     private Long userId;
     private BigDecimal amount;
@@ -39,7 +39,7 @@ class PaymentRequestDto {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 }
 
-class PaymentDto {
+public class PaymentDto {
     private Long id;
     private Long orderId;
     private String status;
