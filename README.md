@@ -1,31 +1,37 @@
 # E-Commerce Microservices Platform
 
-A production-grade e-commerce backend built with **Spring Boot 3**, **Spring Cloud**, and **Microservices Architecture** — designed to demonstrate key concepts for SDE interviews.
+A **full-stack** e-commerce platform built with **Spring Boot 3** microservices (backend) and **React + TypeScript** (frontend) — designed to demonstrate key concepts for SDE interviews.
 
 ## Architecture
 
 ```
-                        ┌──────────────┐
-                        │  API Gateway │ :8080
-                        │ (Spring Cloud│
-                        │   Gateway)   │
-                        └──────┬───────┘
-                               │
-                        ┌──────┴───────┐
-                        │Eureka Server │ :8761
-                        │  (Discovery) │
-                        └──────┬───────┘
-               ┌───────┬───────┼───────┬───────┬───────┐
-               │       │       │       │       │       │
-          ┌────┴──┐┌───┴───┐┌──┴──┐┌───┴──┐┌──┴───┐┌──┴────┐
-          │ User  ││Product││Order││Pay-  ││Inven-││Notif- │
-          │Service││Service││Svc  ││ment  ││tory  ││ication│
-          │ :8081 ││ :8082 ││:8085││:8084 ││:8083 ││:8086  │
-          └───┬───┘└───┬───┘└──┬──┘└───┬──┘└──┬───┘└──┬────┘
-              │        │       │       │      │       │
-         Postgres  Postgres  Postgres Postgres Postgres Kafka
-         + Redis   + Redis   + Kafka  + Kafka + Kafka
-                   + Elastic
+                       ┌─────────────────┐
+                       │  React Frontend │ :5173
+                       │ (Vite + TS +    │
+                       │  Tailwind CSS)  │
+                       └────────┬────────┘
+                                │ /api proxy
+                       ┌────────┴────────┐
+                       │   API Gateway   │ :8080
+                       │ (Spring Cloud   │
+                       │    Gateway)     │
+                       └────────┬────────┘
+                                │
+                       ┌────────┴────────┐
+                       │  Eureka Server  │ :8761
+                       │   (Discovery)   │
+                       └────────┬────────┘
+              ┌────────┬────────┼────────┬────────┬────────┐
+              │        │        │        │        │        │
+         ┌────┴──┐┌────┴──┐┌───┴──┐┌────┴──┐┌───┴───┐┌───┴────┐
+         │ User  ││Product││Order ││Pay-   ││Inven- ││Notif-  │
+         │Service││Service││Svc   ││ment   ││tory   ││ication │
+         │ :8081 ││ :8082 ││:8085 ││:8084  ││:8083  ││:8086   │
+         └───┬───┘└───┬───┘└──┬───┘└───┬───┘└───┬───┘└───┬────┘
+             │        │       │        │        │        │
+        PostgreSQL PostgreSQL PostgreSQL PostgreSQL PostgreSQL Kafka
+        + Cache   + Cache   + Kafka   + Kafka  + Kafka
+                  + Elastic
 ```
 
 ## Key Concepts Covered
@@ -33,6 +39,7 @@ A production-grade e-commerce backend built with **Spring Boot 3**, **Spring Clo
 | Concept | Implementation |
 |---------|---------------|
 | **Microservices** | 6 independent services + gateway + discovery |
+| **Full-Stack** | React + TypeScript frontend with Tailwind CSS |
 | **API Gateway** | Spring Cloud Gateway (reactive, route-based) |
 | **Service Discovery** | Netflix Eureka Server |
 | **Inter-service Comm** | OpenFeign declarative REST clients |
@@ -46,20 +53,52 @@ A production-grade e-commerce backend built with **Spring Boot 3**, **Spring Clo
 | **Monitoring** | Prometheus + Grafana + Spring Actuator |
 | **Containerization** | Docker + Docker Compose |
 | **API Docs** | SpringDoc OpenAPI / Swagger UI |
+| **State Management** | Zustand (lightweight, fast) |
 | **Validation** | Jakarta Bean Validation |
 | **Global Exception Handling** | `@ControllerAdvice` with custom exceptions |
 | **Object Mapping** | MapStruct + Lombok |
 
-## Quick Start (GitHub Codespaces)
+## Quick Start (GitHub Codespaces) — Recommended
 
-1. Open this repo in GitHub Codespaces
-2. In the terminal:
+### 1. Start Backend
 ```bash
 chmod +x rebuild-all.sh
 ./rebuild-all.sh
 ```
-3. Wait for all services to start (~5 min)
-4. Open the **Ports** tab → click the globe icon next to port **8761** to see Eureka Dashboard
+Wait ~5 min for all services to start. Check Eureka: open **Ports** tab → globe icon on port **8761**.
+
+### 2. Start Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open **Ports** tab → globe icon on port **5173** to view the app.
+
+## Frontend Features
+
+| Feature | Description |
+|---------|-------------|
+| **Home** | Hero section, categories, feature highlights |
+| **Products** | Browse, search, filter by category, pagination |
+| **Product Detail** | Full details, quantity selector, add to cart |
+| **Shopping Cart** | Add/remove items, update quantities, persists in localStorage |
+| **Checkout** | Shipping address, payment method, order summary |
+| **Orders** | Order history with status tracking |
+| **Auth** | Register, login with JWT, protected routes |
+| **Responsive** | Mobile-first, works on all screen sizes |
+
+## Frontend Tech Stack
+
+- **React 18** — UI library
+- **Vite** — Build tool (fast HMR)
+- **TypeScript** — Type safety
+- **Tailwind CSS** — Utility-first styling
+- **React Router** — Client-side routing
+- **Zustand** — State management (auth + cart)
+- **Axios** — HTTP client with interceptors
+- **Lucide React** — Icons
+- **React Hot Toast** — Notifications
 
 ## API Endpoints (via Gateway on port 8080)
 
@@ -74,9 +113,6 @@ curl -X POST http://localhost:8080/api/users/register \
 curl -X POST http://localhost:8080/api/users/login \
   -H "Content-Type: application/json" \
   -d '{"usernameOrEmail":"john","password":"Pass1234!"}'
-
-# Get user (use JWT token from login response)
-curl http://localhost:8080/api/users/1
 ```
 
 ### Product Service
@@ -115,30 +151,32 @@ curl -X POST http://localhost:8080/api/orders \
 curl http://localhost:8080/api/orders/user/1
 ```
 
-### Payment Service
-```bash
-# Process payment
-curl -X POST http://localhost:8080/api/payments/process \
-  -H "Content-Type: application/json" \
-  -d '{"orderId":1,"userId":1,"amount":1999.98,"paymentMethod":"CREDIT_CARD"}'
-```
-
 ## Project Structure
 
 ```
 ecommerce-microservices/
-├── common-lib/          # Shared DTOs, exceptions, JWT utility
-├── eureka-server/       # Service discovery (port 8761)
-├── api-gateway/         # API Gateway with JWT auth (port 8080)
-├── user-service/        # User registration & auth (port 8081)
-├── product-service/     # Product catalog (port 8082)
-├── inventory-service/   # Stock management (port 8083)
-├── payment-service/     # Payment processing (port 8084)
-├── order-service/       # Orders + Saga pattern (port 8085)
-├── notification-service/# Kafka event consumer (port 8086)
-├── monitoring/          # Prometheus config
-├── docker-compose.yml   # Full stack orchestration
-└── rebuild-all.sh       # One-command build & deploy
+├── frontend/               # React + TypeScript + Tailwind
+│   ├── src/
+│   │   ├── api/            # Axios API layer
+│   │   ├── components/     # Shared components
+│   │   ├── pages/          # Page components
+│   │   ├── store/          # Zustand stores (auth, cart)
+│   │   ├── types/          # TypeScript types
+│   │   ├── App.tsx         # Router
+│   │   └── main.tsx        # Entry point
+│   └── package.json
+├── common-lib/             # Shared DTOs, exceptions, JWT utility
+├── eureka-server/          # Service discovery (port 8761)
+├── api-gateway/            # API Gateway with JWT auth (port 8080)
+├── user-service/           # User registration & auth (port 8081)
+├── product-service/        # Product catalog (port 8082)
+├── inventory-service/      # Stock management (port 8083)
+├── payment-service/        # Payment processing (port 8084)
+├── order-service/          # Orders + Saga pattern (port 8085)
+├── notification-service/   # Kafka event consumer (port 8086)
+├── monitoring/             # Prometheus config
+├── docker-compose.yml      # Full stack orchestration
+└── rebuild-all.sh          # One-command build & deploy
 ```
 
 ## Monitoring
@@ -150,7 +188,6 @@ ecommerce-microservices/
 
 ## Tech Stack
 
-- Java 17, Spring Boot 3.2, Spring Cloud 2023.0
-- PostgreSQL 15, Redis 7, Elasticsearch 8.11, Apache Kafka
-- Docker, Docker Compose
-- Lombok, MapStruct, JJWT, Resilience4j
+**Backend**: Java 17, Spring Boot 3.2, Spring Cloud 2023.0, PostgreSQL 15, Redis 7, Elasticsearch 8.11, Apache Kafka, Docker, Lombok, MapStruct, JJWT, Resilience4j
+
+**Frontend**: React 18, Vite 5, TypeScript 5, Tailwind CSS 3, React Router 6, Zustand, Axios, Lucide React

@@ -54,3 +54,7 @@ logs/
 *.tmp
 *.swp
 *~
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

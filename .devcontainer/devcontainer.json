@@ -17,6 +17,7 @@
   },
 
   "forwardPorts": [
+    5173,
     8080,
     8081,
     8082,
@@ -33,6 +34,10 @@
   ],
 
   "portsAttributes": {
+    "5173": {
+      "label": "Frontend (React)",
+      "onAutoForward": "notify"
+    },
     "8080": {
       "label": "API Gateway",
       "onAutoForward": "notify"
