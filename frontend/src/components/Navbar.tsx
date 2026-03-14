@@ -33,9 +33,16 @@ export default function Navbar() {
             </Link>
 
             {isAuthenticated && (
-              <Link to="/orders" className="hover:text-indigo-200 transition flex items-center gap-1">
-                <Package className="h-4 w-4" /> Orders
-              </Link>
+              <>
+                <Link to="/orders" className="hover:text-indigo-200 transition flex items-center gap-1">
+                  <Package className="h-4 w-4" /> Orders
+                </Link>
+                {user?.role === 'ADMIN' && (
+                  <Link to="/admin" className="hover:text-indigo-200 transition font-medium">
+                    Admin
+                  </Link>
+                )}
+              </>
             )}
 
             <Link to="/cart" className="relative hover:text-indigo-200 transition">
@@ -91,9 +98,16 @@ export default function Navbar() {
               Products
             </Link>
             {isAuthenticated && (
-              <Link to="/orders" onClick={() => setMenuOpen(false)} className="block py-2 hover:text-indigo-200">
-                Orders
-              </Link>
+              <>
+                <Link to="/orders" onClick={() => setMenuOpen(false)} className="block py-2 hover:text-indigo-200">
+                  Orders
+                </Link>
+                {user?.role === 'ADMIN' && (
+                  <Link to="/admin" onClick={() => setMenuOpen(false)} className="block py-2 hover:text-indigo-200 font-medium">
+                    Admin
+                  </Link>
+                )}
+              </>
             )}
             <Link to="/cart" onClick={() => setMenuOpen(false)} className="block py-2 hover:text-indigo-200">
               Cart ({totalItems()})
