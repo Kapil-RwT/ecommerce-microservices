@@ -11,7 +11,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.math.BigDecimal;
 
-@Document(indexName = "products")
+@Document(indexName = "products", createIndex = false)
 @Data
 @Builder
 @NoArgsConstructor

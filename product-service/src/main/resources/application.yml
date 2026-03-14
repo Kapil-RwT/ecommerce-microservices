@@ -21,6 +21,10 @@ spring:
       timeout: 60000
   elasticsearch:
     uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 5s
+  cache:
+    type: simple
 
 server:
   port: 8082
@@ -57,4 +61,3 @@ springdoc:
 logging:
   level:
     com.ecommerce.product: DEBUG
-    org.springframework.data.elasticsearch: DEBUG

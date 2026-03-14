@@ -1,22 +1,19 @@
 spring:
   application:
     name: api-gateway
+  main:
+    web-application-type: reactive
   cloud:
     gateway:
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
-      default-filters:
-        - name: RequestRateLimiter
-          args:
-            redis-rate-limiter:
-              replenishRate: 10
-              burstCapacity: 20
-  data:
-    redis:
-      host: localhost
-      port: 6379
+          enabled: false
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
 
 server:
   port: 8080
@@ -44,28 +41,12 @@ management:
 resilience4j:
   circuitbreaker:
     instances:
-      userServiceCircuitBreaker:
+      default:
         sliding-window-size: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10000
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
-      productServiceCircuitBreaker:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10000
-      orderServiceCircuitBreaker:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10000
-      paymentServiceCircuitBreaker:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10000
-      inventoryServiceCircuitBreaker:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10000
 
 jwt:
   secret: mySecretKeyForJWTTokenGenerationThatIsLongEnoughForHS256Algorithm
@@ -73,5 +54,6 @@ jwt:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    reactor.netty: DEBUG
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO
+    com.ecommerce.gateway: DEBUG

@@ -8,8 +8,8 @@ import com.ecommerce.product.model.Product;
 import com.ecommerce.product.model.ProductDocument;
 import com.ecommerce.product.repository.ProductElasticsearchRepository;
 import com.ecommerce.product.repository.ProductRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -21,12 +21,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final ProductElasticsearchRepository elasticsearchRepository;
+
+    @Autowired(required = false)
+    private ProductElasticsearchRepository elasticsearchRepository;
+
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
 
     @Transactional
     public ProductResponse createProduct(ProductRequest request) {
@@ -55,7 +60,7 @@ public class ProductService {
 
         product = productRepository.save(product);
         
-        // Index in Elasticsearch
+        // Index in Elasticsearch (optional)
         indexProductInElasticsearch(product);
         
         log.info("Product created successfully: {}", product.getId());
@@ -120,22 +125,25 @@ public class ProductService {
     public Page<ProductResponse> searchProducts(String keyword, Pageable pageable) {
         log.info("Searching products with keyword: {}", keyword);
         
-        try {
-            // Try Elasticsearch first for better search performance
-            Page<ProductDocument> elasticResults = elasticsearchRepository
-                    .findByNameContainingOrDescriptionContaining(keyword, keyword, pageable);
-            
-            return elasticResults.map(doc -> {
-                Product product = productRepository.findById(Long.parseLong(doc.getId()))
-                        .orElse(null);
-                return product != null ? mapToProductResponse(product) : null;
-            });
-        } catch (Exception e) {
-            log.warn("Elasticsearch search failed, falling back to database search", e);
-            // Fallback to database search
-            return productRepository.searchProducts(keyword, pageable)
-                    .map(this::mapToProductResponse);
+        if (elasticsearchRepository != null) {
+            try {
+                // Try Elasticsearch first for better search performance
+                Page<ProductDocument> elasticResults = elasticsearchRepository
+                        .findByNameContainingOrDescriptionContaining(keyword, keyword, pageable);
+                
+                return elasticResults.map(doc -> {
+                    Product product = productRepository.findById(Long.parseLong(doc.getId()))
+                            .orElse(null);
+                    return product != null ? mapToProductResponse(product) : null;
+                });
+            } catch (Exception e) {
+                log.warn("Elasticsearch search failed, falling back to database search", e);
+            }
         }
+        
+        // Fallback to database search
+        return productRepository.searchProducts(keyword, pageable)
+                .map(this::mapToProductResponse);
     }
 
     @Transactional
@@ -163,7 +171,7 @@ public class ProductService {
 
         product = productRepository.save(product);
         
-        // Update in Elasticsearch
+        // Update in Elasticsearch (optional)
         indexProductInElasticsearch(product);
         
         log.info("Product updated successfully: {}", product.getId());
@@ -181,13 +189,22 @@ public class ProductService {
         product.setActive(false);
         productRepository.save(product);
         
-        // Remove from Elasticsearch
-        elasticsearchRepository.deleteById(String.valueOf(id));
+        // Remove from Elasticsearch (optional)
+        if (elasticsearchRepository != null) {
+            try {
+                elasticsearchRepository.deleteById(String.valueOf(id));
+            } catch (Exception e) {
+                log.warn("Failed to remove product from Elasticsearch: {}", id, e);
+            }
+        }
         
         log.info("Product deleted successfully: {}", id);
     }
 
     private void indexProductInElasticsearch(Product product) {
+        if (elasticsearchRepository == null) {
+            return;
+        }
         try {
             ProductDocument document = ProductDocument.builder()
                     .id(String.valueOf(product.getId()))
@@ -205,7 +222,7 @@ public class ProductService {
             elasticsearchRepository.save(document);
             log.info("Product indexed in Elasticsearch: {}", product.getId());
         } catch (Exception e) {
-            log.error("Failed to index product in Elasticsearch: {}", product.getId(), e);
+            log.warn("Failed to index product in Elasticsearch: {}", product.getId(), e);
         }
     }
 
